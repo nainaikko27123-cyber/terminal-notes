@@ -51,6 +51,7 @@ struct TerminalView: View {
 /// The tabs along the top: the current one is highlighted and the others are dimmed.
 private struct TabBar: View {
     @Environment(NotesModel.self) private var model
+    @State private var nowPlaying = NowPlayingMonitor()
     let palette: TerminalPalette
     let backgroundOpacity: Double
 
@@ -66,12 +67,21 @@ private struct TabBar: View {
                     .padding(.vertical, 2)
                     .background(Color(nsColor: isCurrent ? palette.accent : .clear), in: .rect(cornerRadius: 3))
             }
-            Spacer()
+            Spacer(minLength: 12)
+            if let song = nowPlaying.song {
+                Text(verbatim: "♪ \(song.text)")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Color(nsColor: palette.done))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 12)
+            }
             ChompingDots(palette: palette)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
         .background(Color(nsColor: palette.surface).opacity(backgroundOpacity))
+        .task { await nowPlaying.checkCurrentSong() }
     }
 }
 
