@@ -50,6 +50,16 @@ import Testing
         #expect(matches(.link, in: text) == ["[site](https://example.com)"])
     }
 
+    @Test func tags() {
+        #expect(matches(.tag, in: "buy #milk and #2-day #to-do") == ["#milk", "#to-do"])
+        #expect(matches(.tag, in: "# Heading\nsite.com/#top c#sharp `#code`").isEmpty)
+    }
+
+    @Test func dates() {
+        #expect(matches(.date, in: "due 2026-11-02 or 28 Oct 2026 or 3 November") == ["2026-11-02", "28 Oct 2026", "3 November"])
+        #expect(matches(.date, in: "ping 192.168.100.1 for 10 octopus").isEmpty)
+    }
+
     @Test func rangesCountEmojiAsUTF16() {
         #expect(matches(.bold, in: "🎧🎧 **loud**") == ["**loud**"])
     }

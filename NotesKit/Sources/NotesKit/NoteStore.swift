@@ -41,6 +41,14 @@ public struct NoteStore: Sendable {
         return try NoteStore(directory: container.appending(path: "Notes", directoryHint: .isDirectory))
     }
 
+    /// The store the app uses: the shared one when signing allows it, otherwise a private folder
+    /// on this Mac, so notes are always saved. The widget can only see the shared one.
+    public static func forApp() throws -> NoteStore {
+        if let shared = try? shared() { return shared }
+        let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        return try NoteStore(directory: support.appending(path: "NotesApp/Notes", directoryHint: .isDirectory))
+    }
+
     /// All notes, pinned first, then most recently edited. Files that can't be read are skipped and logged.
     public func allNotes() throws -> [Note] {
         try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
@@ -82,6 +90,24 @@ public struct NoteStore: Sendable {
             if note.body != original.body { note.updatedAt = .now }
             if note != original { try write(note, to: url) }
             return note
+        }
+    }
+
+    /// Writes a note with a known ID, creating it if needed. Empty text removes the file,
+    /// so a cleared tab doesn't show up elsewhere as a blank note.
+    public func save(body: String, id: UUID) throws {
+        try coordinate(writing: url(for: id), options: .forMerging) { url in
+            let existing = try? load(id: id, from: url)
+            if body.isEmpty {
+                if existing != nil { try FileManager.default.removeItem(at: url) }
+            } else if var note = existing {
+                guard note.body != body else { return }
+                note.body = body
+                note.updatedAt = .now
+                try write(note, to: url)
+            } else {
+                try write(Note(id: id, body: body), to: url)
+            }
         }
     }
 

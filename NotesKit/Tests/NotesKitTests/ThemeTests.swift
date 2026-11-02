@@ -10,9 +10,10 @@ import Testing
     }()
 
     @Test func nextCyclesThroughEveryThemeAndWraps() {
+        #expect(Theme.tokyoNight.next == .matrixGreen)
         #expect(Theme.matrixGreen.next == .nordBlue)
         #expect(Theme.nordBlue.next == .draculaDark)
-        #expect(Theme.draculaDark.next == .matrixGreen)
+        #expect(Theme.draculaDark.next == .tokyoNight)
     }
 
     @Test func themeIsDefaultUntilSavedThenPersists() {
@@ -26,11 +27,12 @@ import Testing
         #expect(Theme.saved(in: defaults) == .default)
     }
 
-    @Test func defaultThemeKeepsTheOriginalTerminalBackground() {
+    @Test func defaultThemeIsTokyoNightNavy() {
         let color = Theme.default.palette.background
-        #expect(Int((color.redComponent * 255).rounded()) == 0x1E)
-        #expect(Int((color.greenComponent * 255).rounded()) == 0x1E)
-        #expect(Int((color.blueComponent * 255).rounded()) == 0x1E)
+        #expect(Theme.default == .tokyoNight)
+        #expect(Int((color.redComponent * 255).rounded()) == 0x1A)
+        #expect(Int((color.greenComponent * 255).rounded()) == 0x1B)
+        #expect(Int((color.blueComponent * 255).rounded()) == 0x26)
     }
 
     /// WCAG contrast of at least 4.5:1, so body text stays readable in every theme.
@@ -42,7 +44,7 @@ import Testing
             return 0.2126 * channel(color.redComponent) + 0.7152 * channel(color.greenComponent) + 0.0722 * channel(color.blueComponent)
         }
         let palette = theme.palette
-        for color in [palette.text, palette.accent, palette.link, palette.code] {
+        for color in [palette.text, palette.accent, palette.header, palette.tag, palette.date, palette.link, palette.code, palette.done] {
             let (lighter, darker) = (luminance(color), luminance(palette.background))
             #expect((lighter + 0.05) / (darker + 0.05) >= 4.5, "\(theme.name)")
         }

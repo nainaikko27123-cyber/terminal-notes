@@ -170,7 +170,7 @@ private struct NoteLine: View {
             .font(.system(size: 9, design: .monospaced))
             .lineLimit(1)
             .fixedSize()
-            .foregroundStyle(Color(nsColor: palette.code))
+            .foregroundStyle(Color(nsColor: palette.date))
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
             .background(Color(nsColor: palette.surface), in: .capsule)

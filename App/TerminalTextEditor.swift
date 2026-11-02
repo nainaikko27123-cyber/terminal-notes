@@ -17,7 +17,8 @@ final class PromptTextView: NSTextView {
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
-        guard let layoutManager, let textContainer else { return }
+        // An empty page shows the welcome screen, so a lone prompt would just be clutter.
+        guard let layoutManager, let textContainer, !string.isEmpty else { return }
 
         let origin = textContainerOrigin
         let text = string as NSString
@@ -56,6 +57,26 @@ final class PromptTextView: NSTextView {
     override func didChangeText() {
         super.didChangeText()
         needsDisplay = true
+    }
+
+    /// Clicking a `[ ]` or `[x]` flips it. Undo works, and the cursor stays where it was.
+    override func mouseDown(with event: NSEvent) {
+        guard let box = checkboxRange(at: convert(event.locationInWindow, from: nil)) else {
+            super.mouseDown(with: event)
+            return
+        }
+        let selection = selectedRange()
+        insertText(Todos.toggled((string as NSString).substring(with: box)), replacementRange: box)
+        setSelectedRange(selection)
+    }
+
+    private func checkboxRange(at point: NSPoint) -> NSRange? {
+        guard let layoutManager, let textContainer, !string.isEmpty else { return nil }
+        let inContainer = NSPoint(x: point.x - textContainerOrigin.x, y: point.y - textContainerOrigin.y)
+        let glyph = layoutManager.glyphIndex(for: inContainer, in: textContainer)
+        let box = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer)
+        guard box.contains(inContainer) else { return nil }
+        return Todos.checkboxRange(at: layoutManager.characterIndexForGlyph(at: glyph), in: string)
     }
 }
 
@@ -101,7 +122,6 @@ struct TerminalTextEditor: NSViewRepresentable {
         scrollView.drawsBackground = false
         scrollView.automaticallyAdjustsContentInsets = false
 
-        DispatchQueue.main.async { textView.window?.makeFirstResponder(textView) }
         return scrollView
     }
 
@@ -115,12 +135,17 @@ struct TerminalTextEditor: NSViewRepresentable {
             apply(palette, to: textView)
             needsStyling = true
         }
+        var didAppend = false
         if textView.string != text {
+            didAppend = text.hasPrefix(textView.string)
             textView.string = text
             needsStyling = true
         }
         if needsStyling, let storage = textView.textStorage {
             MarkdownStyler.apply(palette, to: storage)
+        }
+        if didAppend {
+            textView.scrollToEndOfDocument(nil)
         }
     }
 
@@ -168,13 +193,18 @@ enum MarkdownStyler {
     @MainActor
     private static func attributes(for style: MarkdownSpan.Style, _ palette: TerminalPalette) -> [NSAttributedString.Key: Any] {
         switch style {
-        case .heading: [.font: TerminalFonts.bold, .foregroundColor: palette.accent]
+        case .heading: [.font: TerminalFonts.bold, .foregroundColor: palette.header]
         case .bold: [.font: TerminalFonts.bold]
         case .italic: [.font: TerminalFonts.italic]
         case .code: [.foregroundColor: palette.code]
         case .quote: [.foregroundColor: palette.dim]
         case .listMarker: [.foregroundColor: palette.accent]
         case .link: [.foregroundColor: palette.link]
+        case .tag: [.foregroundColor: palette.tag]
+        case .date: [.foregroundColor: palette.date]
+        case .todoDoneLine: [.foregroundColor: palette.dim]
+        case .todoOpenBox: [.foregroundColor: palette.accent]
+        case .todoDoneBox: [.font: TerminalFonts.bold, .foregroundColor: palette.done]
         }
     }
 }

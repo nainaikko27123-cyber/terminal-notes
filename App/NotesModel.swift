@@ -11,6 +11,12 @@ final class NotesModel {
     var errorMessage: String?
     /// Goes up each time the user asks to save, so every open editor can save its text.
     private(set) var saveRequestCount = 0
+    /// Goes up each time the cursor should jump back to the prompt.
+    private(set) var promptFocusRequestCount = 0
+
+    var currentTab = NoteTab.saved() {
+        didSet { currentTab.save() }
+    }
 
     var theme = Theme.saved() {
         didSet {
@@ -21,11 +27,11 @@ final class NotesModel {
 
     private let store: NoteStore?
 
-    init() {
+    init(store: NoteStore? = nil) {
         do {
-            store = try NoteStore.shared()
+            self.store = try store ?? NoteStore.forApp()
         } catch {
-            store = nil
+            self.store = nil
             errorMessage = error.localizedDescription
         }
         reload()
@@ -42,6 +48,22 @@ final class NotesModel {
     func reload() {
         guard let store else { return }
         perform { notes = try store.allNotes() }
+    }
+
+    /// The saved page for a tab, or a blank one if nothing has been written there yet.
+    func page(for tab: NoteTab) -> Note {
+        notes.first { $0.id == tab.id } ?? Note(id: tab.id)
+    }
+
+    /// Open to-dos on the tabs other than this one. The current tab counts its live text instead.
+    func openTaskCount(excluding tab: NoteTab) -> Int {
+        NoteTab.allCases
+            .filter { $0 != tab }
+            .reduce(0) { $0 + Todos.openCount(in: page(for: $1).body) }
+    }
+
+    func focusPrompt() {
+        promptFocusRequestCount += 1
     }
 
     func requestSave() {
@@ -64,7 +86,11 @@ final class NotesModel {
     func save(body: String, for id: Note.ID) {
         guard let store else { return }
         do {
-            try store.update(id: id) { $0.body = body }
+            if NoteTab(noteID: id) != nil {
+                try store.save(body: body, id: id)
+            } else {
+                try store.update(id: id) { $0.body = body }
+            }
             didChangeNotes()
         } catch NoteStore.StoreError.noteNotFound {
             // Deleted while an edit was pending, so there's nothing left to save.
