@@ -48,17 +48,17 @@ struct TerminalView: View {
     }
 }
 
-/// tmux-style tabs, like `[1:notes] [2:todo] [3:ideas]`.
+/// The tabs along the top: the current one is highlighted and the others are dimmed.
 private struct TabBar: View {
     @Environment(NotesModel.self) private var model
     let palette: TerminalPalette
     let backgroundOpacity: Double
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 14) {
             ForEach(NoteTab.allCases) { tab in
                 let isCurrent = tab == model.currentTab
-                Button("[\(tab.label)]") { model.currentTab = tab }
+                Button(tab.label) { model.currentTab = tab }
                     .buttonStyle(.plain)
                     .font(.system(size: 13, weight: isCurrent ? .bold : .regular, design: .monospaced))
                     .foregroundStyle(Color(nsColor: isCurrent ? palette.background : palette.dim))
@@ -67,6 +67,7 @@ private struct TabBar: View {
                     .background(Color(nsColor: isCurrent ? palette.accent : .clear), in: .rect(cornerRadius: 3))
             }
             Spacer()
+            ChompingDots(palette: palette)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
@@ -124,16 +125,19 @@ private struct StatusBar: View {
 
     var body: some View {
         HStack {
-            Text("[\(tab.label)]")
+            Text(tab.label)
                 .fontWeight(.bold)
                 .foregroundStyle(Color(nsColor: palette.accent))
             Spacer()
             Text(message ?? tasksText)
                 .foregroundStyle(Color(nsColor: message != nil ? palette.tag : tasksLeft == 0 ? palette.done : palette.date))
             Spacer()
-            TimelineView(.everyMinute) { context in
-                Text(context.date, format: .dateTime.hour().minute())
-                    .foregroundStyle(Color(nsColor: palette.tag))
+            HStack(spacing: 6) {
+                LEDDot()
+                TimelineView(.everyMinute) { context in
+                    Text(context.date, format: .dateTime.hour().minute())
+                        .foregroundStyle(Color(nsColor: palette.tag))
+                }
             }
         }
         .font(.system(size: 12, design: .monospaced))

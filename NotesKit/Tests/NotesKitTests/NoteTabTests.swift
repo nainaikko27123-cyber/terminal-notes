@@ -4,7 +4,7 @@ import Testing
 
 @Suite struct NoteTabTests {
     @Test func labelsMatchTheTabBar() {
-        #expect(NoteTab.allCases.map(\.label) == ["1:notes", "2:todo", "3:ideas"])
+        #expect(NoteTab.allCases.map(\.label) == ["Notes", "To do", "Ideas"])
     }
 
     @Test func idsAreStableAndDistinct() {

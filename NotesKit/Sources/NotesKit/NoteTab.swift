@@ -17,8 +17,14 @@ public enum NoteTab: Int, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// How the tab is written in the tab bar and status bar, like `1:notes`.
-    public var label: String { "\(rawValue):\(name)" }
+    /// How the tab is written in the tab bar, status bar and menu.
+    public var label: String {
+        switch self {
+        case .notes: "Notes"
+        case .todo: "To do"
+        case .ideas: "Ideas"
+        }
+    }
 
     public init?(noteID: UUID) {
         guard let tab = Self.allCases.first(where: { $0.id == noteID }) else { return nil }
