@@ -7,8 +7,10 @@ import os
 /// `NSFileCoordinator`. `update` reads and writes inside one coordinated block, which means
 /// a pin toggled by the widget can't overwrite an edit saved by the app, or the reverse.
 public struct NoteStore: Sendable {
-    /// Must match the `application-groups` value in both entitlements files.
-    public static let appGroupID = "group.com.naikko.notes"
+    /// Must match the `application-groups` value in both entitlements files. It starts with the
+    /// signing team's ID because a free Apple account can't register `group.` names, and macOS
+    /// allows team-prefixed names without registering. Change it if the signing team changes.
+    public static let appGroupID = "PN7658NMXZ.notes"
 
     public enum StoreError: LocalizedError {
         case appGroupUnavailable(String)
@@ -44,7 +46,11 @@ public struct NoteStore: Sendable {
     /// The store the app uses: the shared one when signing allows it, otherwise a private folder
     /// on this Mac, so notes are always saved. The widget can only see the shared one.
     public static func forApp() throws -> NoteStore {
-        if let shared = try? shared() { return shared }
+        do {
+            return try shared()
+        } catch {
+            logger.warning("Shared folder unavailable, the widget won't see notes: \(error)")
+        }
         let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         return try NoteStore(directory: support.appending(path: "NotesApp/Notes", directoryHint: .isDirectory))
     }
