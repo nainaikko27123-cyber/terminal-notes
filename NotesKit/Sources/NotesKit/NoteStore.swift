@@ -1,5 +1,6 @@
 import Foundation
 import os
+import Security
 
 /// Stores each note as `<uuid>.md` in one directory.
 ///
@@ -37,20 +38,26 @@ public struct NoteStore: Sendable {
 
     /// The store shared by the app and the widget.
     public static func shared() throws -> NoteStore {
-        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+        // The system hands out this folder's path even to apps that aren't allowed in, so ask first.
+        guard hasAppGroupPermission,
+              let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
+        else {
             throw StoreError.appGroupUnavailable(appGroupID)
         }
         return try NoteStore(directory: container.appending(path: "Notes", directoryHint: .isDirectory))
     }
 
+    private static var hasAppGroupPermission: Bool {
+        guard let task = SecTaskCreateFromSelf(nil),
+              let groups = SecTaskCopyValueForEntitlement(task, "com.apple.security.application-groups" as CFString, nil) as? [String]
+        else { return false }
+        return groups.contains(appGroupID)
+    }
+
     /// The store the app uses: the shared one when signing allows it, otherwise a private folder
     /// on this Mac, so notes are always saved. The widget can only see the shared one.
     public static func forApp() throws -> NoteStore {
-        do {
-            return try shared()
-        } catch {
-            logger.warning("Shared folder unavailable, the widget won't see notes: \(error)")
-        }
+        if let shared = try? shared() { return shared }
         let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         return try NoteStore(directory: support.appending(path: "NotesApp/Notes", directoryHint: .isDirectory))
     }

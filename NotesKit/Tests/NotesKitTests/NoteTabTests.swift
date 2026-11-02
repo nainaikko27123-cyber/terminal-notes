@@ -21,6 +21,14 @@ import Testing
         #expect(NoteTab.saved(in: defaults) == .ideas)
     }
 
+    /// Tests run without the App Group permission, the same as a locally signed app.
+    @Test func withoutPermissionTheAppUsesItsLocalFolder() throws {
+        #expect(throws: NoteStore.StoreError.self) { try NoteStore.shared() }
+        let path = try NoteStore.forApp().directory.path
+        #expect(path.hasSuffix("Application Support/NotesApp/Notes"))
+        #expect(!path.contains("Group Containers"))
+    }
+
     @Test func tabPageIsCreatedOnSaveAndRemovedWhenEmptied() throws {
         let store = try NoteStore(directory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))
         let id = NoteTab.todo.id
