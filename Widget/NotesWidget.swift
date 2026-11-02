@@ -5,34 +5,41 @@ import WidgetKit
 
 struct NotesEntry: TimelineEntry {
     let date: Date
-    let notes: [Note]
+    /// Enough for the largest size. Each size shows as many as it has room for.
+    let todos: [TodoItem]
+    let tasksLeft: Int
     let theme: Theme
     var errorMessage: String?
 }
 
 struct NotesProvider: TimelineProvider {
     func placeholder(in context: Context) -> NotesEntry {
-        NotesEntry(date: .now, notes: [Note(body: "Groceries"), Note(body: "Study plan"), Note(body: "Ideas")], theme: Theme.saved())
+        let sample = Note(body: "[ ] call mum\n[x] finish quiz\n[ ] buy milk #home")
+        return NotesEntry(date: .now, todos: Todos.items(in: sample), tasksLeft: 2, theme: Theme.saved())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NotesEntry) -> Void) {
         completion(currentEntry())
     }
 
-    /// The app reloads this timeline after each change. The refresh at midnight is only
-    /// so that today's time badges turn into dates.
+    /// Nothing here changes by itself, so the app asks for a reload whenever notes change.
     func getTimeline(in context: Context, completion: @escaping (Timeline<NotesEntry>) -> Void) {
-        let entry = currentEntry()
-        let calendar = Calendar.current
-        let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: entry.date)) ?? entry.date.addingTimeInterval(86_400)
-        completion(Timeline(entries: [entry], policy: .after(midnight)))
+        completion(Timeline(entries: [currentEntry()], policy: .never))
     }
 
+    /// Reads the same three tab pages as the terminal, so the task count matches its status bar.
     private func currentEntry() -> NotesEntry {
         do {
-            return NotesEntry(date: .now, notes: try NoteStore.shared().allNotes(), theme: Theme.saved())
+            let store = try NoteStore.shared()
+            let pages = NoteTab.allCases.compactMap { try? store.note(id: $0.id) }
+            return NotesEntry(
+                date: .now,
+                todos: Todos.recent(from: pages, limit: 5),
+                tasksLeft: pages.reduce(0) { $0 + Todos.openCount(in: $1.body) },
+                theme: Theme.saved()
+            )
         } catch {
-            return NotesEntry(date: .now, notes: [], theme: Theme.saved(), errorMessage: error.localizedDescription)
+            return NotesEntry(date: .now, todos: [], tasksLeft: 0, theme: Theme.saved(), errorMessage: error.localizedDescription)
         }
     }
 }
@@ -44,7 +51,7 @@ struct NotesWidget: Widget {
                 .containerBackground(Color(nsColor: entry.theme.palette.background), for: .widget)
         }
         .configurationDisplayName("Notes Terminal")
-        .description("Your pinned and most recent notes in a mini terminal.")
+        .description("Your latest to-dos in a small terminal.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
@@ -55,133 +62,91 @@ struct NotesWidgetView: View {
     let entry: NotesEntry
 
     var body: some View {
-        TerminalWidgetContent(entry: entry, isSmall: family == .systemSmall)
+        // The small size is short on room, so it shows fewer to-dos.
+        TerminalWidgetContent(entry: entry, maxTodos: family == .systemSmall ? 3 : 5)
     }
 }
 
+/// A small terminal: the prompt on top, the latest to-dos, then how many are left.
 struct TerminalWidgetContent: View {
     let entry: NotesEntry
-    let isSmall: Bool
+    let maxTodos: Int
 
     private var palette: TerminalPalette { entry.theme.palette }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            TerminalHeader(palette: palette)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 0) {
+                Text(verbatim: "shinyu@notes").foregroundStyle(Color(nsColor: palette.done))
+                Text(verbatim: " ~ ").foregroundStyle(Color(nsColor: palette.tag))
+                Text(verbatim: "$").foregroundStyle(Color(nsColor: palette.accent))
+            }
+            .lineLimit(1)
+
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+
+            Text(verbatim: tasksText)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(Color(nsColor: entry.tasksLeft == 0 ? palette.done : palette.date))
         }
-        .font(.system(size: 12, design: .monospaced))
+        .padding(12)
+        .font(.system(size: 11, design: .monospaced))
         .foregroundStyle(Color(nsColor: palette.text))
+    }
+
+    private var tasksText: String {
+        switch entry.tasksLeft {
+        case 0: "no tasks left"
+        case 1: "1 task left"
+        default: "\(entry.tasksLeft) tasks left"
+        }
     }
 
     @ViewBuilder
     private var content: some View {
         if let message = entry.errorMessage {
-            PromptMessage(text: message, palette: palette)
-        } else if entry.notes.isEmpty {
-            PromptMessage(text: "no notes yet", palette: palette)
+            Text(message).foregroundStyle(Color(nsColor: palette.dim))
+        } else if entry.todos.isEmpty {
+            Text(verbatim: "no to-dos yet").foregroundStyle(Color(nsColor: palette.dim))
         } else {
-            VStack(alignment: .leading, spacing: isSmall ? 6 : 10) {
-                // allNotes() already puts pinned notes first, then the most recently edited.
-                ForEach(entry.notes.prefix(3)) { note in
-                    NoteLine(note: note, now: entry.date, stacked: isSmall, palette: palette)
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(entry.todos.prefix(maxTodos)) { item in
+                    TodoRow(item: item, palette: palette)
                 }
             }
         }
     }
 }
 
-private struct TerminalHeader: View {
+/// One to-do, in the same colors as the app. Its box can be clicked right in the widget.
+private struct TodoRow: View {
+    let item: TodoItem
     let palette: TerminalPalette
 
     var body: some View {
-        ZStack {
-            HStack(spacing: 5) {
-                Circle().fill(Color(red: 1, green: 0.37, blue: 0.34))
-                Circle().fill(Color(red: 1, green: 0.74, blue: 0.18))
-                Circle().fill(Color(red: 0.16, green: 0.78, blue: 0.25))
-                Spacer()
+        let styled = NSMutableAttributedString(string: item.line)
+        let _ = MarkdownStyler.apply(palette, to: styled, size: 11)
+
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Button(intent: ToggleTodoIntent(item: item)) {
+                Text(part(of: styled, from: 0, to: 3))
             }
-            .frame(height: 8)
-            Text("~/notes")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color(nsColor: palette.dim))
+            .buttonStyle(.plain)
+            Text(part(of: styled, from: 3, to: styled.length))
         }
-        .padding(.horizontal, 12)
-        .frame(height: 24)
-        .background(Color(nsColor: palette.surface))
-    }
-}
-
-private struct PromptMessage: View {
-    let text: String
-    let palette: TerminalPalette
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("❯").foregroundStyle(Color(nsColor: palette.accent))
-            Text(text).foregroundStyle(Color(nsColor: palette.dim))
-        }
-    }
-}
-
-private struct NoteLine: View {
-    let note: Note
-    let now: Date
-    /// The small widget is too narrow for the title and badge to share a row.
-    let stacked: Bool
-    let palette: TerminalPalette
-
-    var body: some View {
-        if stacked {
-            VStack(alignment: .leading, spacing: 2) {
-                title
-                HStack(spacing: 6) {
-                    badge
-                    Spacer(minLength: 0)
-                    pinButton
-                }
-                .padding(.leading, 16)
-            }
-        } else {
-            HStack(spacing: 8) {
-                title
-                Spacer(minLength: 0)
-                badge
-                pinButton
-            }
-        }
+        .lineLimit(1)
     }
 
-    private var title: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("❯")
-                .foregroundStyle(Color(nsColor: note.isPinned ? palette.accent : palette.dim))
-            Text(note.title)
-                .lineLimit(1)
+    /// Copies the colors and fonts over by hand, so SwiftUI is sure to draw them.
+    private func part(of styled: NSAttributedString, from start: Int, to end: Int) -> AttributedString {
+        var result = AttributedString()
+        styled.enumerateAttributes(in: NSRange(location: start, length: end - start)) { attributes, run, _ in
+            var piece = AttributedString(styled.attributedSubstring(from: run).string)
+            if let color = attributes[.foregroundColor] as? NSColor { piece.foregroundColor = Color(nsColor: color) }
+            if let font = attributes[.font] as? NSFont { piece.font = Font(font) }
+            result += piece
         }
-    }
-
-    private var badge: some View {
-        Text(note.updatedAt.timestampBadge(relativeTo: now))
-            .font(.system(size: 9, design: .monospaced))
-            .lineLimit(1)
-            .fixedSize()
-            .foregroundStyle(Color(nsColor: palette.date))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(Color(nsColor: palette.surface), in: .capsule)
-    }
-
-    private var pinButton: some View {
-        Button(intent: TogglePinIntent(noteID: note.id)) {
-            Image(systemName: note.isPinned ? "pin.fill" : "pin")
-                .font(.system(size: 10))
-                .foregroundStyle(Color(nsColor: note.isPinned ? palette.accent : palette.dim))
-        }
-        .buttonStyle(.plain)
+        return result
     }
 }

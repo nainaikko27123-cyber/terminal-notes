@@ -104,6 +104,7 @@ struct PromptField: NSViewRepresentable {
         let textView = BlockCursorTextView(frame: .zero, textContainer: container)
         textView.delegate = context.coordinator
         textView.isRichText = false
+        textView.drawsBackground = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false

@@ -24,6 +24,43 @@ public enum Todos {
     }
 }
 
+/// One to-do line, ready to show in the widget.
+public struct TodoItem: Identifiable, Hashable, Sendable {
+    public let noteID: UUID
+    /// The whole line, from its checkbox to the end.
+    public let line: String
+    /// Where the checkbox is in the whole note, for flipping it.
+    public let location: Int
+    public let isDone: Bool
+
+    public var id: String { "\(noteID.uuidString)-\(location)" }
+}
+
+public extension Todos {
+    /// A note's to-dos with the newest first. New lines go at the bottom of a page, so that's bottom-up.
+    static func items(in note: Note) -> [TodoItem] {
+        let body = note.body as NSString
+        return MarkdownSpans.find(in: note.body)
+            .filter { $0.style == .todoOpenBox || $0.style == .todoDoneBox }
+            .sorted { $0.range.location > $1.range.location }
+            .map { span in
+                var contentsEnd = 0
+                body.getLineStart(nil, end: nil, contentsEnd: &contentsEnd, for: span.range)
+                return TodoItem(
+                    noteID: note.id,
+                    line: body.substring(with: NSRange(location: span.range.location, length: contentsEnd - span.range.location)),
+                    location: span.range.location,
+                    isDone: span.style == .todoDoneBox
+                )
+            }
+    }
+
+    /// The newest to-dos across these notes: the most recently edited note first.
+    static func recent(from notes: [Note], limit: Int) -> [TodoItem] {
+        Array(notes.sorted { $0.updatedAt > $1.updatedAt }.flatMap(items(in:)).prefix(limit))
+    }
+}
+
 public extension NoteTab {
     /// Turns text typed at the prompt into a line for this tab's page.
     func line(from input: String) -> String {

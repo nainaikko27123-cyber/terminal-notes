@@ -21,13 +21,16 @@ final class NotesModel {
     var theme = Theme.saved() {
         didSet {
             theme.save()
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadWidgets()
         }
     }
 
     private let store: NoteStore?
+    /// Tells the desktop widget to redraw from the saved notes.
+    private let reloadWidgets: () -> Void
 
-    init(store: NoteStore? = nil) {
+    init(store: NoteStore? = nil, reloadWidgets: @escaping () -> Void = { WidgetCenter.shared.reloadAllTimelines() }) {
+        self.reloadWidgets = reloadWidgets
         do {
             self.store = try store ?? NoteStore.forApp()
         } catch {
@@ -118,7 +121,7 @@ final class NotesModel {
 
     private func didChangeNotes() {
         reload()
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadWidgets()
     }
 
     private func perform(_ action: () throws -> Void) {

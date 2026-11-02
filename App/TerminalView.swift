@@ -5,6 +5,9 @@ import SwiftUI
 struct TerminalView: View {
     @Environment(NotesModel.self) private var model
 
+    /// How solid the window's color is. Lower shows more of what's behind it.
+    private static let backgroundOpacity = 0.82
+
     private var palette: TerminalPalette { model.theme.palette }
 
     var body: some View {
@@ -32,7 +35,8 @@ struct TerminalView: View {
             }
             .id(model.currentTab)
         }
-        .background(Color(nsColor: palette.background))
+        .background(Color(nsColor: palette.background).opacity(Self.backgroundOpacity))
+        .background { TranslucentBackground().ignoresSafeArea() }
         .preferredColorScheme(.dark)
     }
 }
@@ -58,7 +62,7 @@ private struct TabBar: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
-        .background(Color(nsColor: palette.surface))
+        .background(Color(nsColor: palette.surface).opacity(0.6))
     }
 }
 
@@ -124,7 +128,7 @@ private struct StatusBar: View {
         .font(.system(size: 12, design: .monospaced))
         .padding(.horizontal, 14)
         .padding(.vertical, 4)
-        .background(Color(nsColor: palette.surface))
+        .background(Color(nsColor: palette.surface).opacity(0.6))
     }
 }
 

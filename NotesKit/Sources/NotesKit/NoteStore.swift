@@ -177,3 +177,14 @@ public struct NoteStore: Sendable {
         try Data(MarkdownNoteFile.encode(note).utf8).write(to: url, options: .atomic)
     }
 }
+
+public extension NoteStore {
+    /// Flips the checkbox at this position. Does nothing if the page changed and there's no box there any more.
+    func toggleTodo(at location: Int, noteID: UUID) throws {
+        try update(id: noteID) { note in
+            guard let box = Todos.checkboxRange(at: location, in: note.body) else { return }
+            let body = note.body as NSString
+            note.body = body.replacingCharacters(in: box, with: Todos.toggled(body.substring(with: box)))
+        }
+    }
+}

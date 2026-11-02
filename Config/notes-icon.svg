@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#24253d"/>
+      <stop offset="1" stop-color="#12131f"/>
+    </linearGradient>
+    <linearGradient id="chev" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7aa2f7"/>
+      <stop offset="1" stop-color="#bb9af7"/>
+    </linearGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- icon body -->
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#bg)"/>
+  <rect x="104" y="104" width="816" height="816" rx="180" fill="none" stroke="#3b3d63" stroke-width="6"/>
+  <!-- window dots -->
+  <circle cx="214" cy="214" r="22" fill="#f7768e"/>
+  <circle cx="276" cy="214" r="22" fill="#e0af68"/>
+  <circle cx="338" cy="214" r="22" fill="#9ece6a"/>
+  <!-- prompt chevron -->
+  <polyline points="300,420 480,570 300,720" fill="none" stroke="url(#chev)" stroke-width="86" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <!-- cursor block -->
+  <rect x="560" y="672" width="190" height="62" rx="16" fill="#9ece6a" filter="url(#glow)"/>
+</svg>

@@ -5,8 +5,6 @@ import SwiftUI
 @MainActor
 enum TerminalFonts {
     static let regular = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-    static let bold = NSFont.monospacedSystemFont(ofSize: 13, weight: .bold)
-    static let italic = NSFontManager.shared.convert(regular, toHaveTrait: .italicFontMask)
 }
 
 /// A text view that draws a ❯ beside each line, bright on the line with the cursor.
@@ -100,6 +98,8 @@ struct TerminalTextEditor: NSViewRepresentable {
         let textView = PromptTextView(frame: .zero, textContainer: container)
         textView.delegate = context.coordinator
         textView.isRichText = false
+        // The window's see-through background shows behind the text.
+        textView.drawsBackground = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
@@ -174,37 +174,6 @@ struct TerminalTextEditor: NSViewRepresentable {
             if !textView.hasMarkedText(), let storage = textView.textStorage {
                 MarkdownStyler.apply(palette, to: storage)
             }
-        }
-    }
-}
-
-enum MarkdownStyler {
-    @MainActor
-    static func apply(_ palette: TerminalPalette, to storage: NSTextStorage) {
-        let whole = NSRange(location: 0, length: storage.length)
-        storage.beginEditing()
-        defer { storage.endEditing() }
-        storage.setAttributes([.font: TerminalFonts.regular, .foregroundColor: palette.text], range: whole)
-        for span in MarkdownSpans.find(in: storage.string) {
-            storage.addAttributes(attributes(for: span.style, palette), range: span.range)
-        }
-    }
-
-    @MainActor
-    private static func attributes(for style: MarkdownSpan.Style, _ palette: TerminalPalette) -> [NSAttributedString.Key: Any] {
-        switch style {
-        case .heading: [.font: TerminalFonts.bold, .foregroundColor: palette.header]
-        case .bold: [.font: TerminalFonts.bold]
-        case .italic: [.font: TerminalFonts.italic]
-        case .code: [.foregroundColor: palette.code]
-        case .quote: [.foregroundColor: palette.dim]
-        case .listMarker: [.foregroundColor: palette.accent]
-        case .link: [.foregroundColor: palette.link]
-        case .tag: [.foregroundColor: palette.tag]
-        case .date: [.foregroundColor: palette.date]
-        case .todoDoneLine: [.foregroundColor: palette.dim]
-        case .todoOpenBox: [.foregroundColor: palette.accent]
-        case .todoDoneBox: [.font: TerminalFonts.bold, .foregroundColor: palette.done]
         }
     }
 }
