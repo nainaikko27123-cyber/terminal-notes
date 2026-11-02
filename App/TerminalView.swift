@@ -5,14 +5,15 @@ import SwiftUI
 struct TerminalView: View {
     @Environment(NotesModel.self) private var model
 
-    /// How solid the window's color is. Lower shows more of what's behind it.
-    private static let backgroundOpacity = 0.82
-
     private var palette: TerminalPalette { model.theme.palette }
+    /// How solid the window's color is. Lower shows more of what's behind it.
+    private var backgroundOpacity: Double { Double(model.windowOpacity) / 100 }
+    /// The bars sit on top of the background, so they need less to look about the same strength.
+    private var barOpacity: Double { backgroundOpacity * 2 / 3 }
 
     var body: some View {
         VStack(spacing: 0) {
-            TabBar(palette: palette)
+            TabBar(palette: palette, backgroundOpacity: barOpacity)
             AutosavingNoteEditor(note: model.page(for: model.currentTab)) { text in
                 VStack(spacing: 0) {
                     TerminalTextEditor(text: text, palette: palette)
@@ -23,19 +24,25 @@ struct TerminalView: View {
                             }
                         }
                     PromptLine(palette: palette, focusRequestCount: model.promptFocusRequestCount) { input in
+                        if let command = PromptCommand.parse(input) {
+                            model.run(command)
+                            return
+                        }
                         text.wrappedValue = text.wrappedValue.appendingLine(model.currentTab.line(from: input))
                         model.requestSave()
                     }
                     StatusBar(
                         tab: model.currentTab,
                         tasksLeft: Todos.openCount(in: text.wrappedValue) + model.openTaskCount(excluding: model.currentTab),
-                        palette: palette
+                        message: model.statusMessage,
+                        palette: palette,
+                        backgroundOpacity: barOpacity
                     )
                 }
             }
             .id(model.currentTab)
         }
-        .background(Color(nsColor: palette.background).opacity(Self.backgroundOpacity))
+        .background(Color(nsColor: palette.background).opacity(backgroundOpacity))
         .background { TranslucentBackground().ignoresSafeArea() }
         .preferredColorScheme(.dark)
     }
@@ -45,6 +52,7 @@ struct TerminalView: View {
 private struct TabBar: View {
     @Environment(NotesModel.self) private var model
     let palette: TerminalPalette
+    let backgroundOpacity: Double
 
     var body: some View {
         HStack(spacing: 8) {
@@ -62,7 +70,7 @@ private struct TabBar: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
-        .background(Color(nsColor: palette.surface).opacity(0.6))
+        .background(Color(nsColor: palette.surface).opacity(backgroundOpacity))
     }
 }
 
@@ -101,7 +109,10 @@ private struct WelcomeScreen: View {
 private struct StatusBar: View {
     let tab: NoteTab
     let tasksLeft: Int
+    /// Takes the place of the task count for a moment, as a reply to a command.
+    let message: String?
     let palette: TerminalPalette
+    let backgroundOpacity: Double
 
     private var tasksText: String {
         switch tasksLeft {
@@ -117,8 +128,8 @@ private struct StatusBar: View {
                 .fontWeight(.bold)
                 .foregroundStyle(Color(nsColor: palette.accent))
             Spacer()
-            Text(tasksText)
-                .foregroundStyle(Color(nsColor: tasksLeft == 0 ? palette.done : palette.date))
+            Text(message ?? tasksText)
+                .foregroundStyle(Color(nsColor: message != nil ? palette.tag : tasksLeft == 0 ? palette.done : palette.date))
             Spacer()
             TimelineView(.everyMinute) { context in
                 Text(context.date, format: .dateTime.hour().minute())
@@ -128,7 +139,7 @@ private struct StatusBar: View {
         .font(.system(size: 12, design: .monospaced))
         .padding(.horizontal, 14)
         .padding(.vertical, 4)
-        .background(Color(nsColor: palette.surface).opacity(0.6))
+        .background(Color(nsColor: palette.surface).opacity(backgroundOpacity))
     }
 }
 

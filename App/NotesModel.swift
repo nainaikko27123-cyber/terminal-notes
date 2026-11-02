@@ -25,12 +25,25 @@ final class NotesModel {
         }
     }
 
+    /// How solid the terminal's background is, from 20 to 100.
+    private(set) var windowOpacity: Int
+    /// A short reply to a prompt command, shown for a moment in the status bar.
+    private(set) var statusMessage: String?
+    private var statusMessageTask: Task<Void, Never>?
+
+    private let settings: UserDefaults
     private let store: NoteStore?
     /// Tells the desktop widget to redraw from the saved notes.
     private let reloadWidgets: () -> Void
 
-    init(store: NoteStore? = nil, reloadWidgets: @escaping () -> Void = { WidgetCenter.shared.reloadAllTimelines() }) {
+    init(
+        store: NoteStore? = nil,
+        settings: UserDefaults = Theme.sharedDefaults,
+        reloadWidgets: @escaping () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
+    ) {
+        self.settings = settings
         self.reloadWidgets = reloadWidgets
+        windowOpacity = WindowOpacity.saved(in: settings)
         do {
             self.store = try store ?? NoteStore.forApp()
         } catch {
@@ -63,6 +76,28 @@ final class NotesModel {
         NoteTab.allCases
             .filter { $0 != tab }
             .reduce(0) { $0 + Todos.openCount(in: page(for: $1).body) }
+    }
+
+    func run(_ command: PromptCommand) {
+        switch command {
+        case .setOpacity(let value):
+            windowOpacity = value
+            WindowOpacity.save(value, to: settings)
+            showStatusMessage("opacity \(value)%")
+        case .showOpacity:
+            showStatusMessage("opacity \(windowOpacity)%")
+        case .invalidOpacity:
+            showStatusMessage("use :opacity \(WindowOpacity.range.lowerBound)-\(WindowOpacity.range.upperBound)")
+        }
+    }
+
+    private func showStatusMessage(_ message: String) {
+        statusMessage = message
+        statusMessageTask?.cancel()
+        statusMessageTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            if !Task.isCancelled { statusMessage = nil }
+        }
     }
 
     func focusPrompt() {

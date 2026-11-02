@@ -76,12 +76,9 @@ struct TerminalWidgetContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 0) {
-                Text(verbatim: "shinyu@notes").foregroundStyle(Color(nsColor: palette.done))
-                Text(verbatim: " ~ ").foregroundStyle(Color(nsColor: palette.tag))
-                Text(verbatim: "$").foregroundStyle(Color(nsColor: palette.accent))
-            }
-            .lineLimit(1)
+            Text(verbatim: "shinyu@notes ~ $")
+                .foregroundStyle(Color(nsColor: palette.done))
+                .lineLimit(1)
 
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

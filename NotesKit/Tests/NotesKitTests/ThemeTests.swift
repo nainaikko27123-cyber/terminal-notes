@@ -35,6 +35,14 @@ import Testing
         #expect(Int((color.blueComponent * 255).rounded()) == 0x26)
     }
 
+    /// See-through windows only change the background, so text colors must stay fully solid.
+    @Test(arguments: Theme.allCases) func textColorsAreFullySolid(theme: Theme) {
+        let p = theme.palette
+        for color in [p.text, p.dim, p.accent, p.header, p.tag, p.date, p.link, p.code, p.done] {
+            #expect(color.alphaComponent == 1)
+        }
+    }
+
     /// WCAG contrast of at least 4.5:1, so body text stays readable in every theme.
     @Test(arguments: Theme.allCases) func textIsReadableOnBackground(theme: Theme) {
         func luminance(_ color: NSColor) -> CGFloat {
