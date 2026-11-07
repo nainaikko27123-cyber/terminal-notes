@@ -86,8 +86,8 @@ public struct NoteStore: Sendable {
     }
 
     @discardableResult
-    public func create(body: String = "") throws -> Note {
-        let note = Note(body: body)
+    public func create(body: String = "", customTitle: String? = nil) throws -> Note {
+        let note = Note(body: body, customTitle: customTitle)
         try coordinate(writing: url(for: note.id), options: .forReplacing) { try write(note, to: $0) }
         return note
     }

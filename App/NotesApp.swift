@@ -51,7 +51,7 @@ struct NotesApp: App {
     }
 }
 
-/// Opens the terminal if it's closed and puts the cursor on the prompt, ready to type.
+/// Opens the terminal if it's closed, then makes a new note and puts the cursor in it.
 private struct NewNoteButton: View {
     @Environment(\.openWindow) private var openWindow
     let model: NotesModel
@@ -59,7 +59,7 @@ private struct NewNoteButton: View {
     var body: some View {
         Button("New Note") {
             openWindow(id: NotesApp.terminalWindowID)
-            model.focusPrompt()
+            model.newNote(title: nil)
         }
         .keyboardShortcut("n")
     }

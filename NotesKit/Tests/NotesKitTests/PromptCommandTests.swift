@@ -24,6 +24,22 @@ import Testing
         #expect(PromptCommand.parse(input) == nil)
     }
 
+    @Test func newNote() {
+        #expect(PromptCommand.parse(":new Groceries for Friday") == .newNote(title: "Groceries for Friday"))
+        #expect(PromptCommand.parse(":NEW   Shopping  ") == .newNote(title: "Shopping"))
+        #expect(PromptCommand.parse(":new") == .newNote(title: nil))
+        #expect(PromptCommand.parse(":newer idea") == nil)
+    }
+
+    @Test func manageNotes() {
+        #expect(PromptCommand.parse(":rename Shopping list") == .rename(title: "Shopping list"))
+        #expect(PromptCommand.parse(":rename") == .rename(title: nil))
+        #expect(PromptCommand.parse(":delete") == .delete)
+        #expect(PromptCommand.parse(":search #home") == .search("#home"))
+        #expect(PromptCommand.parse(":search") == .search(nil))
+        #expect(PromptCommand.parse(":deleted") == nil)
+    }
+
     @Test func opacityIsRememberedAndBadSavedValuesFallBack() {
         let defaults = UserDefaults(suiteName: "PromptCommandTests-\(UUID().uuidString)")!
         #expect(WindowOpacity.saved(in: defaults) == 60)

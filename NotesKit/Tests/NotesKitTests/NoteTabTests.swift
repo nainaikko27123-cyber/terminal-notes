@@ -14,6 +14,11 @@ import Testing
         #expect(NoteTab(noteID: UUID()) == nil)
     }
 
+    @Test func oldNotesPageIsASidebarNoteButOtherPagesAreNot() {
+        #expect(!NoteTab.pageIDs.contains(NoteTab.notes.id))
+        #expect(NoteTab.pageIDs == [NoteTab.todo.id, NoteTab.ideas.id])
+    }
+
     @Test func currentTabPersists() {
         let defaults = UserDefaults(suiteName: "NoteTabTests-\(UUID().uuidString)")!
         #expect(NoteTab.saved(in: defaults) == .notes)

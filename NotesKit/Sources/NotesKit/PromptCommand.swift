@@ -8,14 +8,35 @@ public enum PromptCommand: Equatable, Sendable {
     case showOpacity
     /// `:opacity` with something unusable after it.
     case invalidOpacity
+    /// `:new Groceries`, or `:new` on its own to take the title from the first line.
+    case newNote(title: String?)
+    /// `:rename Shopping`, or `:rename` on its own to go back to using the first line.
+    case rename(title: String?)
+    /// `:delete`, which asks before deleting.
+    case delete
+    /// `:search milk` or `:search #home`, or `:search` on its own to show every note again.
+    case search(String?)
 
     public static func parse(_ input: String) -> PromptCommand? {
         let parts = input.split(whereSeparator: \.isWhitespace)
+        switch parts.first?.lowercased() {
+        case ":new": return .newNote(title: rest(of: input, after: parts[0]))
+        case ":rename": return .rename(title: rest(of: input, after: parts[0]))
+        case ":delete": return .delete
+        case ":search": return .search(rest(of: input, after: parts[0]))
+        default: break
+        }
         guard parts.first?.lowercased() == ":opacity" else { return nil }
         guard parts.count > 1 else { return .showOpacity }
         let number = parts[1].hasSuffix("%") ? parts[1].dropLast() : parts[1]
         guard parts.count == 2, let value = Int(number), WindowOpacity.range.contains(value) else { return .invalidOpacity }
         return .setOpacity(value)
+    }
+
+    /// Everything after the command word, keeping its spacing and capitals. Nil if there's nothing.
+    private static func rest(of input: String, after command: Substring) -> String? {
+        let rest = input[command.endIndex...].trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? nil : rest
     }
 }
 

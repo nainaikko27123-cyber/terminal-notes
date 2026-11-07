@@ -34,6 +34,12 @@ struct AutosavingNoteEditor<Editor: View>: View {
                 if text == savedText { text = note.body }
                 savedText = note.body
             }
+            .onChange(of: model.appendRequest) {
+                guard let request = model.appendRequest, request.noteID == note.id else { return }
+                text = text.appendingLine(request.line)
+                pendingSave?.cancel()
+                saveIfNeeded()
+            }
             .onChange(of: model.saveRequestCount) {
                 pendingSave?.cancel()
                 saveIfNeeded()

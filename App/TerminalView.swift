@@ -14,33 +14,43 @@ struct TerminalView: View {
     var body: some View {
         VStack(spacing: 0) {
             TabBar(palette: palette, backgroundOpacity: barOpacity)
-            AutosavingNoteEditor(note: model.page(for: model.currentTab)) { text in
-                VStack(spacing: 0) {
-                    TerminalTextEditor(text: text, palette: palette)
-                        .padding(.top, 6)
-                        .overlay {
-                            if text.wrappedValue.isEmpty {
-                                WelcomeScreen(tab: model.currentTab, palette: palette)
+            if model.currentTab == .notes {
+                NotesScreen(palette: palette, barOpacity: barOpacity)
+            } else {
+                AutosavingNoteEditor(note: model.page(for: model.currentTab)) { text in
+                    VStack(spacing: 0) {
+                        TerminalTextEditor(text: text, palette: palette)
+                            .padding(.top, 6)
+                            .overlay {
+                                if text.wrappedValue.isEmpty {
+                                    WelcomeScreen(
+                                        message: "nothing in \(model.currentTab.name) yet",
+                                        tip: model.currentTab == .todo ? "try: buy milk #home" : "tip: use #tags and [ ] to-dos",
+                                        palette: palette
+                                    )
+                                }
                             }
+                        PromptLine(palette: palette, focusRequestCount: model.promptFocusRequestCount) { input in
+                            if let command = PromptCommand.parse(input) {
+                                model.run(command)
+                                return
+                            }
+                            text.wrappedValue = text.wrappedValue.appendingLine(model.currentTab.line(from: input))
+                            model.requestSave()
                         }
-                    PromptLine(palette: palette, focusRequestCount: model.promptFocusRequestCount) { input in
-                        if let command = PromptCommand.parse(input) {
-                            model.run(command)
-                            return
-                        }
-                        text.wrappedValue = text.wrappedValue.appendingLine(model.currentTab.line(from: input))
-                        model.requestSave()
+                        StatusBar(
+                            tab: model.currentTab,
+                            tasksLeft: Todos.openCount(in: text.wrappedValue)
+                                + model.openTaskCount(excludingNoteID: model.page(for: model.currentTab).id),
+                            notesCount: model.sidebarNotes.count,
+                            message: model.statusMessage,
+                            palette: palette,
+                            backgroundOpacity: barOpacity
+                        )
                     }
-                    StatusBar(
-                        tab: model.currentTab,
-                        tasksLeft: Todos.openCount(in: text.wrappedValue) + model.openTaskCount(excluding: model.currentTab),
-                        message: model.statusMessage,
-                        palette: palette,
-                        backgroundOpacity: barOpacity
-                    )
                 }
+                .id(model.currentTab)
             }
-            .id(model.currentTab)
         }
         .background(Color(nsColor: palette.background).opacity(backgroundOpacity))
         .background { TranslucentBackground().ignoresSafeArea() }
@@ -86,8 +96,9 @@ private struct TabBar: View {
 }
 
 /// Shown instead of a blank page when a tab has nothing in it yet.
-private struct WelcomeScreen: View {
-    let tab: NoteTab
+struct WelcomeScreen: View {
+    let message: String
+    let tip: String
     let palette: TerminalPalette
 
     private static let logo = #"""
@@ -102,11 +113,11 @@ private struct WelcomeScreen: View {
             Text(Self.logo)
                 .foregroundStyle(Color(nsColor: palette.header))
             VStack(spacing: 4) {
-                Text("nothing in \(tab.name) yet")
+                Text(verbatim: message)
                     .foregroundStyle(Color(nsColor: palette.text))
                 Text("type below and press enter")
                     .foregroundStyle(Color(nsColor: palette.dim))
-                Text(tab == .todo ? "try: buy milk #home" : "tip: use #tags and [ ] to-dos")
+                Text(verbatim: tip)
                     .foregroundStyle(Color(nsColor: palette.tag))
             }
         }
@@ -116,14 +127,23 @@ private struct WelcomeScreen: View {
     }
 }
 
-/// A tmux-style bar: current tab on the left, tasks left in the middle, time on the right.
-private struct StatusBar: View {
+/// A tmux-style bar: current tab on the left, notes and tasks left in the middle, time on the right.
+struct StatusBar: View {
     let tab: NoteTab
     let tasksLeft: Int
+    let notesCount: Int
     /// Takes the place of the task count for a moment, as a reply to a command.
     let message: String?
     let palette: TerminalPalette
     let backgroundOpacity: Double
+
+    private var notesText: String {
+        switch notesCount {
+        case 0: "no notes"
+        case 1: "1 note"
+        default: "\(notesCount) notes"
+        }
+    }
 
     private var tasksText: String {
         switch tasksLeft {
@@ -139,7 +159,7 @@ private struct StatusBar: View {
                 .fontWeight(.bold)
                 .foregroundStyle(Color(nsColor: palette.accent))
             Spacer()
-            Text(message ?? tasksText)
+            Text(message ?? "\(notesText) · \(tasksText)")
                 .foregroundStyle(Color(nsColor: message != nil ? palette.tag : tasksLeft == 0 ? palette.done : palette.date))
             Spacer()
             HStack(spacing: 6) {
@@ -157,7 +177,7 @@ private struct StatusBar: View {
     }
 }
 
-private extension String {
+extension String {
     func appendingLine(_ line: String) -> String {
         if isEmpty { return line }
         return hasSuffix("\n") ? self + line : self + "\n" + line

@@ -12,6 +12,17 @@ final class PromptTextView: NSTextView {
     static let gutterWidth: CGFloat = 34
 
     var palette = Theme.default.palette
+    /// Takes the cursor as soon as it's on screen, like after making a new note.
+    var focusOnAppear = false
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard focusOnAppear, let window else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            window.makeFirstResponder(self)
+        }
+    }
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
@@ -82,6 +93,7 @@ final class PromptTextView: NSTextView {
 struct TerminalTextEditor: NSViewRepresentable {
     @Binding var text: String
     let palette: TerminalPalette
+    var autofocus = false
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, palette: palette)
@@ -96,6 +108,7 @@ struct TerminalTextEditor: NSViewRepresentable {
         layoutManager.addTextContainer(container)
 
         let textView = PromptTextView(frame: .zero, textContainer: container)
+        textView.focusOnAppear = autofocus
         textView.delegate = context.coordinator
         textView.isRichText = false
         // The window's see-through background shows behind the text.

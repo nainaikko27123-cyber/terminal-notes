@@ -17,8 +17,10 @@ enum MarkdownNoteFile {
     private static let closing = "\n---\n"
 
     static func encode(_ note: Note) -> String {
-        """
-        \(opening)createdAt: \(note.createdAt.formatted(dateStyle))
+        // A title is one line, so a line break can't spill into the next field.
+        let title = note.customTitle.map { "title: \($0.split(whereSeparator: \.isNewline).joined(separator: " "))\n" } ?? ""
+        return """
+        \(opening)\(title)createdAt: \(note.createdAt.formatted(dateStyle))
         updatedAt: \(note.updatedAt.formatted(dateStyle))
         pinned: \(note.isPinned)\(closing)\(note.body)
         """
@@ -47,7 +49,8 @@ enum MarkdownNoteFile {
             body: String(text[end.upperBound...]),
             createdAt: date("createdAt"),
             updatedAt: date("updatedAt"),
-            isPinned: fields["pinned"] == "true"
+            isPinned: fields["pinned"] == "true",
+            customTitle: fields["title"].map(String.init).flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 }

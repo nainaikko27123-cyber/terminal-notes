@@ -8,6 +8,8 @@ struct NotesEntry: TimelineEntry {
     /// Enough for the largest size. Each size shows as many as it has room for.
     let todos: [TodoItem]
     let tasksLeft: Int
+    /// Notes in the app's Notes tab sidebar.
+    let notesCount: Int
     let theme: Theme
     var errorMessage: String?
 }
@@ -15,7 +17,7 @@ struct NotesEntry: TimelineEntry {
 struct NotesProvider: TimelineProvider {
     func placeholder(in context: Context) -> NotesEntry {
         let sample = Note(body: "[ ] call mum\n[x] finish quiz\n[ ] buy milk #home")
-        return NotesEntry(date: .now, todos: Todos.items(in: sample), tasksLeft: 2, theme: Theme.saved())
+        return NotesEntry(date: .now, todos: Todos.items(in: sample), tasksLeft: 2, notesCount: 3, theme: Theme.saved())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NotesEntry) -> Void) {
@@ -27,19 +29,19 @@ struct NotesProvider: TimelineProvider {
         completion(Timeline(entries: [currentEntry()], policy: .never))
     }
 
-    /// Reads the same three tab pages as the terminal, so the task count matches its status bar.
+    /// Reads every note, the same as the terminal, so the counts match its status bar.
     private func currentEntry() -> NotesEntry {
         do {
-            let store = try NoteStore.shared()
-            let pages = NoteTab.allCases.compactMap { try? store.note(id: $0.id) }
+            let notes = try NoteStore.shared().allNotes()
             return NotesEntry(
                 date: .now,
-                todos: Todos.recent(from: pages, limit: 5),
-                tasksLeft: pages.reduce(0) { $0 + Todos.openCount(in: $1.body) },
+                todos: Todos.recent(from: notes, limit: 5),
+                tasksLeft: notes.reduce(0) { $0 + Todos.openCount(in: $1.body) },
+                notesCount: notes.count { !NoteTab.pageIDs.contains($0.id) },
                 theme: Theme.saved()
             )
         } catch {
-            return NotesEntry(date: .now, todos: [], tasksLeft: 0, theme: Theme.saved(), errorMessage: error.localizedDescription)
+            return NotesEntry(date: .now, todos: [], tasksLeft: 0, notesCount: 0, theme: Theme.saved(), errorMessage: error.localizedDescription)
         }
     }
 }
@@ -93,11 +95,12 @@ struct TerminalWidgetContent: View {
     }
 
     private var tasksText: String {
-        switch entry.tasksLeft {
+        let tasks = switch entry.tasksLeft {
         case 0: "no tasks left"
         case 1: "1 task left"
         default: "\(entry.tasksLeft) tasks left"
         }
+        return "\(tasks) · \(entry.notesCount == 1 ? "1 note" : "\(entry.notesCount) notes")"
     }
 
     @ViewBuilder

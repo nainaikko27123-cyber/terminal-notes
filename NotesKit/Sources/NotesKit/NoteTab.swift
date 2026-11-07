@@ -26,6 +26,10 @@ public enum NoteTab: Int, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Pages that belong to their own tab. Every other note, including the old Notes tab page,
+    /// is listed in the Notes tab's sidebar.
+    public static let pageIDs: Set<UUID> = [NoteTab.todo.id, NoteTab.ideas.id]
+
     public init?(noteID: UUID) {
         guard let tab = Self.allCases.first(where: { $0.id == noteID }) else { return nil }
         self = tab

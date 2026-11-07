@@ -19,6 +19,29 @@ import Testing
         #expect(!loaded.isPinned)
     }
 
+    @Test func customTitleIsSavedAndUsedOverTheFirstLine() throws {
+        let store = try makeStore()
+        let note = try store.create(body: "first line", customTitle: "My: title")
+        let loaded = try store.note(id: note.id)
+        #expect(loaded.customTitle == "My: title")
+        #expect(loaded.title == "My: title")
+        #expect(loaded.body == "first line")
+        #expect(try store.note(id: store.create(body: "first line").id).title == "first line")
+    }
+
+    @Test func customTitleStaysOnOneLine() throws {
+        let store = try makeStore()
+        let note = try store.create(body: "x", customTitle: "two\nlines")
+        #expect(try store.note(id: note.id).customTitle == "two lines")
+    }
+
+    @Test func editingTheTextKeepsTheCustomTitle() throws {
+        let store = try makeStore()
+        let note = try store.create(body: "a", customTitle: "Keep me")
+        try store.update(id: note.id) { $0.body = "b" }
+        #expect(try store.note(id: note.id).customTitle == "Keep me")
+    }
+
     @Test func emptyNoteRoundTrips() throws {
         let store = try makeStore()
         let created = try store.create()

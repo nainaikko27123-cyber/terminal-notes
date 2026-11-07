@@ -6,6 +6,8 @@ import SwiftUI
 /// so the block is drawn here, behind the text, which keeps the letter under it readable.
 final class BlockCursorTextView: NSTextView {
     var palette = Theme.default.palette
+    /// Off when something else, like a new note's editor, should get the cursor instead.
+    var focusOnAppear = true
     private(set) var cursorIsOn = true
     private var blinkTimer: Timer?
 
@@ -15,6 +17,7 @@ final class BlockCursorTextView: NSTextView {
         blinkTimer = nil
         guard let window else { return }
         // The cursor belongs here as soon as the prompt appears, including after a tab switch.
+        guard focusOnAppear else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             window.makeFirstResponder(self)
@@ -87,6 +90,9 @@ struct PromptField: NSViewRepresentable {
     let palette: TerminalPalette
     /// Goes up when something asks for the cursor to come back here.
     let focusRequestCount: Int
+    var focusOnAppear = true
+    /// Called with -1 or +1 when the up or down arrow is pressed while the box is empty.
+    var onMove: ((Int) -> Void)?
     let onSubmit: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -102,6 +108,7 @@ struct PromptField: NSViewRepresentable {
         layoutManager.addTextContainer(container)
 
         let textView = BlockCursorTextView(frame: .zero, textContainer: container)
+        textView.focusOnAppear = focusOnAppear
         textView.delegate = context.coordinator
         textView.isRichText = false
         textView.drawsBackground = false
@@ -133,6 +140,7 @@ struct PromptField: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.onSubmit = onSubmit
+        context.coordinator.onMove = onMove
         guard let textView = scrollView.documentView as? BlockCursorTextView else { return }
         if textView.palette != palette {
             apply(palette, to: textView)
@@ -155,12 +163,17 @@ struct PromptField: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var onSubmit: (String) -> Void
         var focusRequestCount = 0
+        var onMove: ((Int) -> Void)?
 
         init(onSubmit: @escaping (String) -> Void) {
             self.onSubmit = onSubmit
         }
 
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            if textView.string.isEmpty, let onMove {
+                if selector == #selector(NSResponder.moveUp(_:)) { onMove(-1); return true }
+                if selector == #selector(NSResponder.moveDown(_:)) { onMove(1); return true }
+            }
             guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
             let input = textView.string.trimmingCharacters(in: .whitespaces)
             guard !input.isEmpty else { return true }
@@ -183,6 +196,8 @@ struct PromptField: NSViewRepresentable {
 struct PromptLine: View {
     let palette: TerminalPalette
     let focusRequestCount: Int
+    var focusOnAppear = true
+    var onMove: ((Int) -> Void)?
     let onSubmit: (String) -> Void
 
     var body: some View {
@@ -194,7 +209,7 @@ struct PromptLine: View {
             }
             .font(.system(size: 13, design: .monospaced))
             .fixedSize()
-            PromptField(palette: palette, focusRequestCount: focusRequestCount, onSubmit: onSubmit)
+            PromptField(palette: palette, focusRequestCount: focusRequestCount, focusOnAppear: focusOnAppear, onMove: onMove, onSubmit: onSubmit)
         }
         .frame(height: 20)
         .padding(.horizontal, 14)
