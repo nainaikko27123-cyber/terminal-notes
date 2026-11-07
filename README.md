@@ -15,3 +15,6 @@ Swift · SwiftUI · WidgetKit · App Groups · a Swift package (`NotesKit`) for 
 
 ## Run it
 Open `NotesApp.xcodeproj` in Xcode, choose your own signing team, and press **Run**.
+
+## License
+MIT. Free to use, change and share. See [LICENSE](LICENSE).
